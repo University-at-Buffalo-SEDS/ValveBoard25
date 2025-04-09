@@ -10,4 +10,4 @@ What to do:
  - [ ] Write RTOS tasks for reading inputs pins(from RF board)
  - [ ] Write RTOS tasks for scanning global var for whether or not firing is enabled
  - [ ] Write RTOS tasks for activiating valves
- - [ ] Confire ADC(i.e. clock freq) for pressure
+ - [ ] Configure ADC(i.e. clock freq) for pressure
