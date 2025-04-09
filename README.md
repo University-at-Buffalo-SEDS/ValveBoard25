@@ -2,7 +2,7 @@
 Valve board code
 
 What to do:
- - [ ] Setup board config on STM32
+ - [X] Setup board config on STM32
  - [ ] Setup GPIO pins for valves
  - [ ] Configure LTC2990 to work with current and voltage
  - [ ] Write RTOS tasks for reading voltage, current
