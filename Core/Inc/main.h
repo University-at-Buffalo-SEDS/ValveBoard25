@@ -57,6 +57,21 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define EMER_VALVE_Pin GPIO_PIN_0
+#define EMER_VALVE_GPIO_Port GPIOB
+#define EMER_VALVE_EXTI_IRQn EXTI0_IRQn
+#define SOLENOID_IN_Pin GPIO_PIN_1
+#define SOLENOID_IN_GPIO_Port GPIOB
+#define SOLENOID_IN_EXTI_IRQn EXTI1_IRQn
+#define FC_FAULT_Pin GPIO_PIN_2
+#define FC_FAULT_GPIO_Port GPIOB
+#define FC_FAULT_EXTI_IRQn EXTI2_IRQn
+#define Solenoid_OUT_Pin GPIO_PIN_11
+#define Solenoid_OUT_GPIO_Port GPIOB
+#define Emergency_Valve_Pin GPIO_PIN_12
+#define Emergency_Valve_GPIO_Port GPIOB
+#define Pressure_IN_Pin GPIO_PIN_13
+#define Pressure_IN_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
