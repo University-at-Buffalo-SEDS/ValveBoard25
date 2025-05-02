@@ -1,0 +1,11 @@
+../Core/Src/main.c:74:13:CDC_Transmit_Print	1
+../Core/Src/main.c:84:6:HAL_GPIO_EXTI_Callback	4
+../Core/Src/main.c:121:5:main	1
+../Core/Src/main.c:224:6:SystemClock_Config	3
+../Core/Src/main.c:266:13:MX_ADC3_Init	3
+../Core/Src/main.c:329:13:MX_FDCAN2_Init	2
+../Core/Src/main.c:372:13:MX_I2C2_Init	4
+../Core/Src/main.c:420:13:MX_GPIO_Init	1
+../Core/Src/main.c:485:6:StartDefaultTask	1
+../Core/Src/main.c:506:6:HAL_TIM_PeriodElapsedCallback	2
+../Core/Src/main.c:523:6:Error_Handler	1

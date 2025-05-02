@@ -23,6 +23,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <stdarg.h>
 
 /* USER CODE END Includes */
 
@@ -67,13 +69,25 @@ const osEventFlagsAttr_t readCurrent_attributes = {
 };
 /* USER CODE BEGIN PV */
 
+#define PRINT_BUFFER_SIZE     256
+
+extern void CDC_Transmit_Print(const char *format, ...) {
+	char buf[PRINT_BUFFER_SIZE];
+	va_list args;
+	va_start(args, format);
+	int n = vsprintf(buf, format, args);
+	CDC_Transmit_FS(buf, n);
+}
+
+uint32_t adc_data;
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
-	if(GPIO_PIN == EMER_VALVE_Pin) {
-		GPIO_PinState in = HAL_GPIO_ReadPin(EMER_VALVE_GPIO_Port, EMER_VALVE_Pin);
-		HAL_GPIO_WritePin(Emergency_Valve_GPIO_Port, Emergency_Valve_Pin, in);
+	if(GPIO_Pin == EMER_VALVE_IN_Pin) {
+		GPIO_PinState in = HAL_GPIO_ReadPin(EMER_VALVE_IN_GPIO_Port, EMER_VALVE_IN_Pin);
+		HAL_GPIO_WritePin(Emergency_Valve_OUT_GPIO_Port, Emergency_Valve_OUT_Pin, in);
 	} else if (GPIO_Pin == FC_FAULT_Pin) {
-		HAL_GPIO_WritePin(Emergency_Valve_GPIO_Port, Emergency_Valve_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(Emergency_Valve_OUT_GPIO_Port, Emergency_Valve_OUT_Pin, GPIO_PIN_SET);
 	} else if (GPIO_Pin == SOLENOID_IN_Pin) {
 		HAL_GPIO_WritePin(Solenoid_OUT_GPIO_Port, Solenoid_OUT_Pin, GPIO_PIN_SET);
 	} else {
@@ -133,6 +147,19 @@ int main(void)
   MX_FDCAN2_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
+
+  MX_USB_Device_Init();
+CDC_Transmit_Print("Beggining Program");
+
+  while(1){
+	  HAL_ADC_Start(&hadc3);
+	  HAL_ADC_PollForConversion(&hadc3,20);
+	  adc_data = HAL_ADC_GetValue(&hadc3);
+	  CDC_Transmit_Print("ADC Value: %lu \r\n", adc_data);
+
+	  HAL_Delay(50);
+  }
+
 
   /* USER CODE END 2 */
 
@@ -267,8 +294,8 @@ static void MX_ADC3_Init(void)
   hadc3.Init.DMAContinuousRequests = DISABLE;
   hadc3.Init.Overrun = ADC_OVR_DATA_PRESERVED;
   hadc3.Init.OversamplingMode = ENABLE;
-  hadc3.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_256;
-  hadc3.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_4;
+  hadc3.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_16;
+  hadc3.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_NONE;
   hadc3.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
   hadc3.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
   if (HAL_ADC_Init(&hadc3) != HAL_OK)
@@ -403,13 +430,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, Solenoid_OUT_Pin|Emergency_Valve_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, Solenoid_OUT_Pin|Emergency_Valve_OUT_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : EMER_VALVE_Pin */
-  GPIO_InitStruct.Pin = EMER_VALVE_Pin;
+  /*Configure GPIO pin : EMER_VALVE_IN_Pin */
+  GPIO_InitStruct.Pin = EMER_VALVE_IN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(EMER_VALVE_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(EMER_VALVE_IN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SOLENOID_IN_Pin */
   GPIO_InitStruct.Pin = SOLENOID_IN_Pin;
@@ -423,8 +450,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(FC_FAULT_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Solenoid_OUT_Pin Emergency_Valve_Pin */
-  GPIO_InitStruct.Pin = Solenoid_OUT_Pin|Emergency_Valve_Pin;
+  /*Configure GPIO pins : Solenoid_OUT_Pin Emergency_Valve_OUT_Pin */
+  GPIO_InitStruct.Pin = Solenoid_OUT_Pin|Emergency_Valve_OUT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
