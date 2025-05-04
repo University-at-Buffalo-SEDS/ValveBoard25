@@ -25,7 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <stdarg.h>
-
+#include "Drivers/ltc2990.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,35 +50,65 @@ FDCAN_HandleTypeDef hfdcan2;
 
 I2C_HandleTypeDef hi2c2;
 
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
+UART_HandleTypeDef hlpuart1;
+
+/* Definitions for blinkLED */
+osThreadId_t blinkLEDHandle;
+const osThreadAttr_t blinkLED_attributes = {
+  .name = "blinkLED",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
+  .stack_size = 1000 * 4
 };
-/* Definitions for readVoltage */
-osEventFlagsId_t readVoltageHandle;
-const osEventFlagsAttr_t readVoltage_attributes = {
-  .name = "readVoltage"
+/* Definitions for readInstrumenta */
+osThreadId_t readInstrumentaHandle;
+const osThreadAttr_t readInstrumenta_attributes = {
+  .name = "readInstrumenta",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 1000 * 4
 };
-/* Definitions for readCurrent */
-osEventFlagsId_t readCurrentHandle;
-const osEventFlagsAttr_t readCurrent_attributes = {
-  .name = "readCurrent"
+/* Definitions for printInstrument */
+osThreadId_t printInstrumentHandle;
+const osThreadAttr_t printInstrument_attributes = {
+  .name = "printInstrument",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 1000 * 4
 };
 /* USER CODE BEGIN PV */
 
+LTC2990_Handle_t LTC2990_Handle;
+
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_ADC3_Init(void);
+static void MX_FDCAN2_Init(void);
+static void MX_I2C2_Init(void);
+static void MX_LPUART1_UART_Init(void);
+void startBlinkLED(void *argument);
+void startReadInstrumentation(void *argument);
+void startPrintInstrumentation(void *argument);
+
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
 #define PRINT_BUFFER_SIZE     256
 
-extern void CDC_Transmit_Print(const char *format, ...) {
-	char buf[PRINT_BUFFER_SIZE];
-	va_list args;
-	va_start(args, format);
-	int n = vsprintf(buf, format, args);
-	CDC_Transmit_FS(buf, n);
+void CDC_Transmit_Print(const char *format, ...)
+{
+  char buf[PRINT_BUFFER_SIZE];
+  va_list args;
+  va_start(args, format);
+  int n = vsprintf(buf, format, args);
+  va_end(args);
+  CDC_Transmit_FS(buf, n);
 }
-
 uint32_t adc_data;
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
@@ -94,23 +124,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 		return;
 	}
 }
-
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
-void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_ADC3_Init(void);
-static void MX_FDCAN2_Init(void);
-static void MX_I2C2_Init(void);
-void StartDefaultTask(void *argument);
-
-/* USER CODE BEGIN PFP */
-
-/* USER CODE END PFP */
-
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
 
 /* USER CODE END 0 */
 
@@ -146,19 +159,25 @@ int main(void)
   MX_ADC3_Init();
   MX_FDCAN2_Init();
   MX_I2C2_Init();
+  MX_LPUART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  MX_USB_Device_Init();
-CDC_Transmit_Print("Beggining Program");
+  HAL_FDCAN_Start(&hfdcan2);
 
-  while(1){
-	  HAL_ADC_Start(&hadc3);
-	  HAL_ADC_PollForConversion(&hadc3,20);
-	  adc_data = HAL_ADC_GetValue(&hadc3);
-	  CDC_Transmit_Print("ADC Value: %lu \r\n", adc_data);
 
-	  HAL_Delay(50);
-  }
+
+
+//  MX_USB_Device_Init();
+//CDC_Transmit_Print("Beggining Program");
+//
+//  while(1){
+//	  HAL_ADC_Start(&hadc3);
+//	  HAL_ADC_PollForConversion(&hadc3,20);
+//	  adc_data = HAL_ADC_GetValue(&hadc3);
+//	  CDC_Transmit_Print("ADC Value: %lu \r\n", adc_data);
+//
+//	  HAL_Delay(50);
+//  }
 
 
   /* USER CODE END 2 */
@@ -183,19 +202,18 @@ CDC_Transmit_Print("Beggining Program");
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  /* creation of blinkLED */
+  blinkLEDHandle = osThreadNew(startBlinkLED, NULL, &blinkLED_attributes);
+
+  /* creation of readInstrumenta */
+  readInstrumentaHandle = osThreadNew(startReadInstrumentation, NULL, &readInstrumenta_attributes);
+
+  /* creation of printInstrument */
+  printInstrumentHandle = osThreadNew(startPrintInstrumentation, NULL, &printInstrument_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
-
-  /* Create the event(s) */
-  /* creation of readVoltage */
-  readVoltageHandle = osEventFlagsNew(&readVoltage_attributes);
-
-  /* creation of readCurrent */
-  readCurrentHandle = osEventFlagsNew(&readCurrent_attributes);
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
@@ -413,6 +431,53 @@ static void MX_I2C2_Init(void)
 }
 
 /**
+  * @brief LPUART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_LPUART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN LPUART1_Init 0 */
+
+  /* USER CODE END LPUART1_Init 0 */
+
+  /* USER CODE BEGIN LPUART1_Init 1 */
+
+  /* USER CODE END LPUART1_Init 1 */
+  hlpuart1.Instance = LPUART1;
+  hlpuart1.Init.BaudRate = 209700;
+  hlpuart1.Init.WordLength = UART_WORDLENGTH_8B;
+  hlpuart1.Init.StopBits = UART_STOPBITS_1;
+  hlpuart1.Init.Parity = UART_PARITY_NONE;
+  hlpuart1.Init.Mode = UART_MODE_TX_RX;
+  hlpuart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  hlpuart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  hlpuart1.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  hlpuart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&hlpuart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&hlpuart1, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&hlpuart1, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&hlpuart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN LPUART1_Init 2 */
+
+  /* USER CODE END LPUART1_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -426,11 +491,14 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, Solenoid_OUT_Pin|Emergency_Valve_OUT_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(FRONT_LED_GPIO_Port, FRONT_LED_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : EMER_VALVE_IN_Pin */
   GPIO_InitStruct.Pin = EMER_VALVE_IN_Pin;
@@ -457,6 +525,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : FRONT_LED_Pin */
+  GPIO_InitStruct.Pin = FRONT_LED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(FRONT_LED_GPIO_Port, &GPIO_InitStruct);
+
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI0_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI0_IRQn);
@@ -475,14 +550,14 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_startBlinkLED */
 /**
-  * @brief  Function implementing the defaultTask thread.
+  * @brief  Function implementing the blinkLED thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+/* USER CODE END Header_startBlinkLED */
+void startBlinkLED(void *argument)
 {
   /* init code for USB_Device */
   MX_USB_Device_Init();
@@ -490,9 +565,56 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	HAL_GPIO_TogglePin(FRONT_LED_GPIO_Port, FRONT_LED_Pin);
+    osDelay(100);
   }
   /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_startReadInstrumentation */
+/**
+* @brief Function implementing the readInstrumenta thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startReadInstrumentation */
+void startReadInstrumentation(void *argument)
+{
+  /* USER CODE BEGIN startReadInstrumentation */
+	LTC2990_Init(&LTC2990_Handle, &hi2c2, LTC2990_I2C_ADDRESS);
+  /* Infinite loop */
+  for(;;)
+  {
+	LTC2990_Step(&LTC2990_Handle);
+    osDelay(1);
+  }
+  /* USER CODE END startReadInstrumentation */
+}
+
+/* USER CODE BEGIN Header_startPrintInstrumentation */
+/**
+* @brief Function implementing the printInstrument thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startPrintInstrumentation */
+void startPrintInstrumentation(void *argument)
+{
+  /* USER CODE BEGIN startPrintInstrumentation */
+  /* Infinite loop */
+  for(;;)
+  {
+	float raw_voltage[2];
+	LTC2990_Get_Single_Ended_Voltage(&LTC2990_Handle, raw_voltage);
+
+	CDC_Transmit_Print("Voltage 1: %f \r\n", raw_voltage[0]);
+	osDelay(10);
+	CDC_Transmit_Print("Voltage 2: %f \r\n", raw_voltage[1]);
+	osDelay(10);
+	CDC_Transmit_Print("Current is: %f \r\n", LTC2990_Get_Current(&LTC2990_Handle));
+	osDelay(750);
+  }
+  /* USER CODE END startPrintInstrumentation */
 }
 
 /**

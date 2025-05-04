@@ -1,6 +1,6 @@
 ################################################################################
 # Automatically-generated file. Do not edit!
-# Toolchain: GNU Tools for STM32 (12.3.rel1)
+# Toolchain: GNU Tools for STM32 (13.3.rel1)
 ################################################################################
 
 -include ../makefile.init
@@ -19,6 +19,7 @@ RM := rm -rf
 -include Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/subdir.mk
 -include Drivers/STM32G4xx_HAL_Driver/Src/subdir.mk
 -include Core/Startup/subdir.mk
+-include Core/Src/Drivers/subdir.mk
 -include Core/Src/subdir.mk
 -include objects.mk
 
@@ -68,8 +69,8 @@ all: main-build
 main-build: ValveBoard25.elf secondary-outputs
 
 # Tool invocations
-ValveBoard25.elf ValveBoard25.map: $(OBJS) $(USER_OBJS) C:\Users\askod\Documents\GitHub\ValveBoard25\STM32G491CETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "ValveBoard25.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\askod\Documents\GitHub\ValveBoard25\STM32G491CETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="ValveBoard25.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+ValveBoard25.elf ValveBoard25.map: $(OBJS) $(USER_OBJS) C:\Users\zyadp\Documents\GitHub\ValveBoard25\STM32G491CETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "ValveBoard25.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\zyadp\Documents\GitHub\ValveBoard25\STM32G491CETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="ValveBoard25.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
