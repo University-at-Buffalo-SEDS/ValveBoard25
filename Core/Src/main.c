@@ -30,7 +30,11 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+typedef struct
+{
+  float voltages[2];
+  uint32_t pressure;
+} instrumentationPayload_t;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -73,6 +77,32 @@ const osThreadAttr_t printInstrument_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 1000 * 4
 };
+/* Definitions for ADCReadTask */
+osThreadId_t ADCReadTaskHandle;
+const osThreadAttr_t ADCReadTask_attributes = {
+  .name = "ADCReadTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 1000 * 4
+};
+/* Definitions for ADCPrintTask */
+osThreadId_t ADCPrintTaskHandle;
+const osThreadAttr_t ADCPrintTask_attributes = {
+  .name = "ADCPrintTask",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 1000 * 4
+};
+/* Definitions for sendMessage */
+osThreadId_t sendMessageHandle;
+const osThreadAttr_t sendMessage_attributes = {
+  .name = "sendMessage",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 1000 * 4
+};
+/* Definitions for sensorQueue */
+osMessageQueueId_t sensorQueueHandle;
+const osMessageQueueAttr_t sensorQueue_attributes = {
+  .name = "sensorQueue"
+};
 /* USER CODE BEGIN PV */
 
 LTC2990_Handle_t LTC2990_Handle;
@@ -90,6 +120,9 @@ static void MX_LPUART1_UART_Init(void);
 void startBlinkLED(void *argument);
 void startReadInstrumentation(void *argument);
 void startPrintInstrumentation(void *argument);
+void startReadADC(void *argument);
+void startADCPrint(void *argument);
+void StartSendMessage(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -109,7 +142,7 @@ void CDC_Transmit_Print(const char *format, ...)
   va_end(args);
   CDC_Transmit_FS(buf, n);
 }
-uint32_t adc_data;
+//uint32_t adc_data;
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
@@ -166,7 +199,7 @@ int main(void)
 
 
 
-
+//
 //  MX_USB_Device_Init();
 //CDC_Transmit_Print("Beggining Program");
 //
@@ -197,6 +230,10 @@ int main(void)
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
+  /* Create the queue(s) */
+  /* creation of sensorQueue */
+  sensorQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &sensorQueue_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
@@ -210,6 +247,15 @@ int main(void)
 
   /* creation of printInstrument */
   printInstrumentHandle = osThreadNew(startPrintInstrumentation, NULL, &printInstrument_attributes);
+
+  /* creation of ADCReadTask */
+  ADCReadTaskHandle = osThreadNew(startReadADC, NULL, &ADCReadTask_attributes);
+
+  /* creation of ADCPrintTask */
+  ADCPrintTaskHandle = osThreadNew(startADCPrint, NULL, &ADCPrintTask_attributes);
+
+  /* creation of sendMessage */
+  sendMessageHandle = osThreadNew(StartSendMessage, NULL, &sendMessage_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -311,7 +357,7 @@ static void MX_ADC3_Init(void)
   hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc3.Init.DMAContinuousRequests = DISABLE;
   hadc3.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-  hadc3.Init.OversamplingMode = ENABLE;
+  hadc3.Init.OversamplingMode = DISABLE;
   hadc3.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_16;
   hadc3.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_NONE;
   hadc3.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
@@ -356,21 +402,21 @@ static void MX_FDCAN2_Init(void)
   /* USER CODE END FDCAN2_Init 1 */
   hfdcan2.Instance = FDCAN2;
   hfdcan2.Init.ClockDivider = FDCAN_CLOCK_DIV1;
-  hfdcan2.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
+  hfdcan2.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
   hfdcan2.Init.Mode = FDCAN_MODE_NORMAL;
   hfdcan2.Init.AutoRetransmission = DISABLE;
   hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
-  hfdcan2.Init.NominalPrescaler = 16;
-  hfdcan2.Init.NominalSyncJumpWidth = 1;
-  hfdcan2.Init.NominalTimeSeg1 = 1;
-  hfdcan2.Init.NominalTimeSeg2 = 1;
+  hfdcan2.Init.NominalPrescaler = 1;
+  hfdcan2.Init.NominalSyncJumpWidth = 16;
+  hfdcan2.Init.NominalTimeSeg1 = 63;
+  hfdcan2.Init.NominalTimeSeg2 = 16;
   hfdcan2.Init.DataPrescaler = 1;
-  hfdcan2.Init.DataSyncJumpWidth = 1;
-  hfdcan2.Init.DataTimeSeg1 = 1;
-  hfdcan2.Init.DataTimeSeg2 = 1;
-  hfdcan2.Init.StdFiltersNbr = 0;
-  hfdcan2.Init.ExtFiltersNbr = 0;
+  hfdcan2.Init.DataSyncJumpWidth = 4;
+  hfdcan2.Init.DataTimeSeg1 = 13;
+  hfdcan2.Init.DataTimeSeg2 = 2;
+  hfdcan2.Init.StdFiltersNbr = 1;
+  hfdcan2.Init.ExtFiltersNbr = 1;
   hfdcan2.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
   if (HAL_FDCAN_Init(&hfdcan2) != HAL_OK)
   {
@@ -585,8 +631,31 @@ void startReadInstrumentation(void *argument)
   /* Infinite loop */
   for(;;)
   {
+	float raw_voltages[2];
+	instrumentationPayload_t payload;
+
+	HAL_ADC_Start(&hadc3);
+	HAL_ADC_PollForConversion(&hadc3,20);
+	payload.pressure = HAL_ADC_GetValue(&hadc3);
+
 	LTC2990_Step(&LTC2990_Handle);
-    osDelay(1);
+
+	LTC2990_Get_Single_Ended_Voltage(&LTC2990_Handle, raw_voltages);
+
+
+	payload.voltages[0] = raw_voltages[0];
+	payload.voltages[1] = raw_voltages[1];
+
+	osMessageQueuePut(sensorQueueHandle, &payload, 0, osWaitForever);
+
+	CDC_Transmit_Print("Voltage 1: %f \n", payload.voltages[0]);
+	CDC_Transmit_Print("Voltage 2: %f \n", payload.voltages[1]);
+
+	osDelay(10);
+
+	CDC_Transmit_Print("ADC Data: %d \n", payload.pressure);
+
+    osDelay(50);
   }
   /* USER CODE END startReadInstrumentation */
 }
@@ -604,17 +673,86 @@ void startPrintInstrumentation(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	float raw_voltage[2];
-	LTC2990_Get_Single_Ended_Voltage(&LTC2990_Handle, raw_voltage);
+//	float raw_voltage[2];
+//	LTC2990_Get_Single_Ended_Voltage(&LTC2990_Handle, raw_voltage);
+//
+//	CDC_Transmit_Print("Voltage 1: %f \r\n", raw_voltage[0]);
+//	osDelay(10);
+//	CDC_Transmit_Print("Voltage 2: %f \r\n", raw_voltage[1]);
 
-	CDC_Transmit_Print("Voltage 1: %f \r\n", raw_voltage[0]);
-	osDelay(10);
-	CDC_Transmit_Print("Voltage 2: %f \r\n", raw_voltage[1]);
-	osDelay(10);
-	CDC_Transmit_Print("Current is: %f \r\n", LTC2990_Get_Current(&LTC2990_Handle));
 	osDelay(750);
   }
   /* USER CODE END startPrintInstrumentation */
+}
+
+/* USER CODE BEGIN Header_startReadADC */
+/**
+* @brief Function implementing the ADCReadTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startReadADC */
+void startReadADC(void *argument)
+{
+  /* USER CODE BEGIN startReadADC */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END startReadADC */
+}
+
+/* USER CODE BEGIN Header_startADCPrint */
+/**
+* @brief Function implementing the ADCPrintTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startADCPrint */
+void startADCPrint(void *argument)
+{
+  /* USER CODE BEGIN startADCPrint */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END startADCPrint */
+}
+
+/* USER CODE BEGIN Header_StartSendMessage */
+/**
+* @brief Function implementing the sendMessage thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartSendMessage */
+void StartSendMessage(void *argument)
+{
+  /* USER CODE BEGIN StartSendMessage */
+  /* Infinite loop */
+	instrumentationPayload_t payload;
+	  uint8_t txBuf[sizeof(instrumentationPayload_t)];
+	  FDCAN_TxHeaderTypeDef txHeader = {
+		  .Identifier = 0x333,
+		  .IdType = FDCAN_STANDARD_ID,
+		  .TxFrameType = FDCAN_DATA_FRAME,
+		  .DataLength = FDCAN_DLC_BYTES_16,
+		  .ErrorStateIndicator = FDCAN_ESI_ACTIVE,
+		  .BitRateSwitch = FDCAN_BRS_ON,
+		  .FDFormat = FDCAN_FD_CAN,
+		  .TxEventFifoControl = FDCAN_STORE_TX_EVENTS,
+		  .MessageMarker = 0
+	  };
+  for(;;)
+  {
+	  osMessageQueueGet(sensorQueueHandle, &payload, NULL, osWaitForever);
+	  memcpy(txBuf, &payload, sizeof(payload));
+	  HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &txHeader, txBuf);
+	  osDelay(100);
+  }
+  /* USER CODE END StartSendMessage */
 }
 
 /**
