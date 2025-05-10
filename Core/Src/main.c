@@ -34,7 +34,7 @@ typedef struct
 {
   float voltages[2];
   uint32_t pressure;
-} instrumentationPayload_t;
+} valveBoardPayload_t;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -119,9 +119,6 @@ static void MX_I2C2_Init(void);
 static void MX_LPUART1_UART_Init(void);
 void startBlinkLED(void *argument);
 void startReadInstrumentation(void *argument);
-void startPrintInstrumentation(void *argument);
-void startReadADC(void *argument);
-void startADCPrint(void *argument);
 void StartSendMessage(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -135,12 +132,18 @@ void StartSendMessage(void *argument);
 
 void CDC_Transmit_Print(const char *format, ...)
 {
-  char buf[PRINT_BUFFER_SIZE];
-  va_list args;
-  va_start(args, format);
-  int n = vsprintf(buf, format, args);
-  va_end(args);
-  CDC_Transmit_FS(buf, n);
+    char buf[PRINT_BUFFER_SIZE];
+    va_list  args;
+    va_start(args, format);
+    int len = vsnprintf(buf, sizeof(buf), format, args);
+    va_end(args);
+    if (len <= 0) {
+        return;
+    }
+    if (len > (PRINT_BUFFER_SIZE - 1)) {
+        len = PRINT_BUFFER_SIZE - 1;
+    }
+    CDC_Transmit_FS((uint8_t*)buf, (uint16_t)len);
 }
 //uint32_t adc_data;
 
@@ -197,24 +200,6 @@ int main(void)
 
   HAL_FDCAN_Start(&hfdcan2);
 
-
-
-//
-//  MX_USB_Device_Init();
-//CDC_Transmit_Print("Beggining Program");
-//
-//  while(1){
-//	  HAL_ADC_Start(&hadc3);
-//	  HAL_ADC_PollForConversion(&hadc3,20);
-//	  adc_data = HAL_ADC_GetValue(&hadc3);
-//	  CDC_Transmit_Print("ADC Value: %lu \r\n", adc_data);
-//
-//	  HAL_Delay(50);
-//  }
-
-
-  /* USER CODE END 2 */
-
   /* Init scheduler */
   osKernelInitialize();
 
@@ -232,7 +217,7 @@ int main(void)
 
   /* Create the queue(s) */
   /* creation of sensorQueue */
-  sensorQueueHandle = osMessageQueueNew (16, sizeof(uint16_t), &sensorQueue_attributes);
+  sensorQueueHandle = osMessageQueueNew (16, sizeof(valveBoardPayload_t), &sensorQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -244,15 +229,6 @@ int main(void)
 
   /* creation of readInstrumenta */
   readInstrumentaHandle = osThreadNew(startReadInstrumentation, NULL, &readInstrumenta_attributes);
-
-  /* creation of printInstrument */
-  printInstrumentHandle = osThreadNew(startPrintInstrumentation, NULL, &printInstrument_attributes);
-
-  /* creation of ADCReadTask */
-  ADCReadTaskHandle = osThreadNew(startReadADC, NULL, &ADCReadTask_attributes);
-
-  /* creation of ADCPrintTask */
-  ADCPrintTaskHandle = osThreadNew(startADCPrint, NULL, &ADCPrintTask_attributes);
 
   /* creation of sendMessage */
   sendMessageHandle = osThreadNew(StartSendMessage, NULL, &sendMessage_attributes);
@@ -589,6 +565,11 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
+/* Configure PB13 as analog for ADC3_IN5 */
+  GPIO_InitStruct.Pin  = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -632,7 +613,7 @@ void startReadInstrumentation(void *argument)
   for(;;)
   {
 	float raw_voltages[2];
-	instrumentationPayload_t payload;
+	valveBoardPayload_t payload;
 
 	HAL_ADC_Start(&hadc3);
 	HAL_ADC_PollForConversion(&hadc3,20);
@@ -648,78 +629,15 @@ void startReadInstrumentation(void *argument)
 
 	osMessageQueuePut(sensorQueueHandle, &payload, 0, osWaitForever);
 
-	CDC_Transmit_Print("Voltage 1: %f \n", payload.voltages[0]);
-	CDC_Transmit_Print("Voltage 2: %f \n", payload.voltages[1]);
-
-	osDelay(10);
-
-	CDC_Transmit_Print("ADC Data: %d \n", payload.pressure);
+	CDC_Transmit_Print("Voltage 1: %f \r\n", payload.voltages[0]);
+	CDC_Transmit_Print("Voltage 2: %f \r\n", payload.voltages[1]);
+	CDC_Transmit_Print("ADC Data: %d \r\n", payload.pressure);
 
     osDelay(50);
   }
   /* USER CODE END startReadInstrumentation */
 }
 
-/* USER CODE BEGIN Header_startPrintInstrumentation */
-/**
-* @brief Function implementing the printInstrument thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_startPrintInstrumentation */
-void startPrintInstrumentation(void *argument)
-{
-  /* USER CODE BEGIN startPrintInstrumentation */
-  /* Infinite loop */
-  for(;;)
-  {
-//	float raw_voltage[2];
-//	LTC2990_Get_Single_Ended_Voltage(&LTC2990_Handle, raw_voltage);
-//
-//	CDC_Transmit_Print("Voltage 1: %f \r\n", raw_voltage[0]);
-//	osDelay(10);
-//	CDC_Transmit_Print("Voltage 2: %f \r\n", raw_voltage[1]);
-
-	osDelay(750);
-  }
-  /* USER CODE END startPrintInstrumentation */
-}
-
-/* USER CODE BEGIN Header_startReadADC */
-/**
-* @brief Function implementing the ADCReadTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_startReadADC */
-void startReadADC(void *argument)
-{
-  /* USER CODE BEGIN startReadADC */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END startReadADC */
-}
-
-/* USER CODE BEGIN Header_startADCPrint */
-/**
-* @brief Function implementing the ADCPrintTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_startADCPrint */
-void startADCPrint(void *argument)
-{
-  /* USER CODE BEGIN startADCPrint */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END startADCPrint */
-}
 
 /* USER CODE BEGIN Header_StartSendMessage */
 /**
@@ -732,13 +650,13 @@ void StartSendMessage(void *argument)
 {
   /* USER CODE BEGIN StartSendMessage */
   /* Infinite loop */
-	instrumentationPayload_t payload;
-	  uint8_t txBuf[sizeof(instrumentationPayload_t)];
+	valveBoardPayload_t payload;
+	  uint8_t txBuf[sizeof(valveBoardPayload_t)];
 	  FDCAN_TxHeaderTypeDef txHeader = {
 		  .Identifier = 0x333,
 		  .IdType = FDCAN_STANDARD_ID,
 		  .TxFrameType = FDCAN_DATA_FRAME,
-		  .DataLength = FDCAN_DLC_BYTES_16,
+		  .DataLength = FDCAN_DLC_BYTES_12,
 		  .ErrorStateIndicator = FDCAN_ESI_ACTIVE,
 		  .BitRateSwitch = FDCAN_BRS_ON,
 		  .FDFormat = FDCAN_FD_CAN,
